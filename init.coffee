@@ -22,9 +22,24 @@ LanguageMode = require src 'language-mode'
 _ = require node_modules 'underscore-plus'
 {OnigRegExp} = require node_modules 'oniguruma'
 
+
+
+stopEventPropagationAndGroupUndo = (commandListeners) ->
+  newCommandListeners = {}
+  for commandName, commandListener of commandListeners
+    do (commandListener) ->
+      newCommandListeners[commandName] = (event) ->
+        event.stopPropagation()
+        model = @getModel()
+        model.transact atom.config.get('editor.undoGroupingInterval'), ->
+          commandListener.call(model, event)
+  newCommandListeners
+
 atom.commands.add 'atom-text-editor:not(.mini)', stopEventPropagationAndGroupUndo
   'editor:comment-buffer-rows': -> @commentSelection()
   'editor:uncomment-buffer-rows': -> @uncommentSelection()
+
+
 
 TextEditor::commentSelection = ->
   @mutateSelectedText (selection) ->
@@ -121,27 +136,3 @@ LanguageMode::uncommentBufferRows = (start, end) ->
             columnStart = match[1].length
             columnEnd = columnStart + match[2].length
             buffer.setTextInRange([[row, columnStart], [row, columnEnd]], "")
-
-
-
-`
-function stopEventPropagationAndGroupUndo(commandListeners) {
-  var commandListener, commandName, newCommandListeners, _fn;
-  newCommandListeners = {};
-  _fn = function(commandListener) {
-    return newCommandListeners[commandName] = function(event) {
-      var model;
-      event.stopPropagation();
-      model = this.getModel();
-      return model.transact(atom.config.get('editor.undoGroupingInterval'), function() {
-        return commandListener.call(model, event);
-      });
-    };
-  };
-  for (commandName in commandListeners) {
-    commandListener = commandListeners[commandName];
-    _fn(commandListener);
-  }
-  return newCommandListeners;
-};
-`
